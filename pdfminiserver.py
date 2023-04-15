@@ -7,8 +7,8 @@ from flask import Flask, jsonify, request, send_file
 from PyPDF2 import PdfFileReader
 
 app = Flask(__name__)
-app.config['UPLOAD_FOLDER'] = '/tmp/output'
-app.config['PDF_SERVER_IP'] = '192.168.0.1'
+app.config['UPLOAD_DIR'] = '/tmp/upload'
+app.config['PDF_SERVER_IP'] = '192.168.0.152'
 app.config['PDF_SERVER_PORT'] = 5000
 app.config['ALLOWED_EXTENSIONS'] = {'pdf'}
 app.config['MAX_CONTENT_LENGTH'] = 16 * 1024 * 1024  # 16MB
@@ -22,11 +22,13 @@ def allowed_file(filename):
 def pdf_to_csv_json(filepath, output_format):
     with open(filepath, 'rb') as f:
         if output_format == 'csv':
-            return tabula.convert_into(f, "output.csv", output_format="csv", pages='all')
+            return tabula.convert_into(f, os.path.join(app.config['UPLOAD_DIR'], (os.path.splitext(filepath)[0]+'.csv')), output_format="csv", pages='all')
         elif output_format == 'json':
-            return tabula.convert_into(f, "output.json", output_format="json")
+            return tabula.convert_into(f, os.path.join(app.config['UPLOAD_DIR'], (os.path.splitext(filepath)[0]+'.json')), output_format="json", pages='all')
         else:
             return None
+        
+
 
 class ConvertThread(threading.Thread):
     def __init__(self, filepath, output_format):
@@ -54,7 +56,7 @@ def convert_file():
 
     if file and allowed_file(file.filename):
         filename = file.filename
-        filepath = os.path.join(app.config['UPLOAD_FOLDER'], filename)
+        filepath = os.path.join(app.config['UPLOAD_DIR'], filename)
         file.save(filepath)
         output_format = request.form.get('output_format', 'csv')
         thread = ConvertThread(filepath, output_format)
